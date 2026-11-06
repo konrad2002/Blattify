@@ -57,6 +57,16 @@ struct P22ProtocolTests {
         #expect(P22Protocol.configPayload(from: Data()) == nil)
     }
 
+    @Test(arguments: [("99 00", 99), ("75 00", 75), ("05 00", 5), ("00 00", 0), ("20", 20)])
+    func batteryPercentFromDecimalDigits(payload: String, expected: Int) {
+        #expect(P22Protocol.batteryPercent(fromPayload: hex(payload)) == expected)
+    }
+
+    @Test(arguments: ["9a 00", "f0 00", "ff 00", ""])
+    func batteryPercentRejectsInvalidBytes(payload: String) {
+        #expect(P22Protocol.batteryPercent(fromPayload: hex(payload)) == nil)
+    }
+
     @Test func hexString() {
         #expect(hex("99 00 0d").hexString == "99 00 0d")
     }

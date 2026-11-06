@@ -141,19 +141,19 @@ struct PrintLabelSheet: View {
                 Label("Printer", systemImage: "printer.fill")
             }
             LabeledContent {
-                statusValue(payload: printer.status.batteryPayload, failed: printer.status.batteryQueryFailed)
+                batteryValue
             } label: {
-                Label("Battery", systemImage: "battery.75percent")
+                Label {
+                    Text("Battery")
+                } icon: {
+                    Image(systemName: BatteryLevel.symbolName(for: printer.status.batteryPercent))
+                        .foregroundStyle(BatteryLevel.color(for: printer.status.batteryPercent) ?? .accentColor)
+                }
             }
             LabeledContent {
                 Text("\(P22Protocol.labelSizeMillimeters.width) × \(P22Protocol.labelSizeMillimeters.height) mm")
             } label: {
                 Label("Label size", systemImage: "rectangle.portrait")
-            }
-            LabeledContent {
-                statusValue(payload: printer.status.configPayload, failed: printer.status.configQueryFailed)
-            } label: {
-                Label("Paper", systemImage: "doc")
             }
             Button("Choose another printer", systemImage: "arrow.left.arrow.right") {
                 printer.chooseAnotherPrinter()
@@ -161,22 +161,25 @@ struct PrintLabelSheet: View {
             .disabled(printer.isSending)
         } header: {
             Text("Connected")
-        } footer: {
-            Text("The printer reports battery and paper information in a format that is not decoded yet. The raw values are shown for reference.")
         }
     }
 
-    /// "Not decoded yet" plus the raw bytes, or "No response".
+    /// Percentage (coloured when low), "Unknown" with the raw bytes, or "No response".
     @ViewBuilder
-    private func statusValue(payload: Data?, failed: Bool) -> some View {
-        if let payload {
+    private var batteryValue: some View {
+        let status = printer.status
+        if let percent = status.batteryPercent {
+            Text(Double(percent) / 100, format: .percent)
+                .foregroundStyle(BatteryLevel.color(for: percent) ?? .secondary)
+                .fontWeight(BatteryLevel.color(for: percent) == nil ? .regular : .semibold)
+        } else if let payload = status.batteryPayload {
             VStack(alignment: .trailing, spacing: 2) {
-                Text("Not decoded yet")
+                Text("Unknown")
                 Text(verbatim: payload.hexString)
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
             }
-        } else if failed {
+        } else if status.batteryQueryFailed {
             Text("No response")
                 .foregroundStyle(.orange)
         } else {
@@ -238,6 +241,28 @@ struct PrintLabelSheet: View {
                     Button("Open Settings") { openURL(url) }
                 }
             }
+        }
+    }
+}
+
+/// Icon and warning colour for the printer battery.
+private enum BatteryLevel {
+    /// Red up to 20 %, orange up to 35 %, otherwise no warning colour.
+    static func color(for percent: Int?) -> Color? {
+        guard let percent else { return nil }
+        if percent <= 20 { return .red }
+        if percent <= 35 { return .orange }
+        return nil
+    }
+
+    static func symbolName(for percent: Int?) -> String {
+        guard let percent else { return "battery.0percent" }
+        switch percent {
+        case 88...: return "battery.100percent"
+        case 63..<88: return "battery.75percent"
+        case 38..<63: return "battery.50percent"
+        case 13..<38: return "battery.25percent"
+        default: return "battery.0percent"
         }
     }
 }

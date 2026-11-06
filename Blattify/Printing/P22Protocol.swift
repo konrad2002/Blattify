@@ -34,6 +34,17 @@ nonisolated enum P22Protocol {
         payload(of: response, prefix: "BATTERY ")
     }
 
+    /// Battery level in percent: the first payload byte holds the value as two decimal digits
+    /// (`0x75` = 75 %, observed `99 00` and `75 00`); the second byte is ignored.
+    /// Returns `nil` for bytes that are not two decimal digits or exceed 100.
+    static func batteryPercent(fromPayload payload: Data) -> Int? {
+        guard let byte = payload.first else { return nil }
+        let tens = Int(byte >> 4), ones = Int(byte & 0x0F)
+        guard tens <= 9, ones <= 9 else { return nil }
+        let percent = tens * 10 + ones
+        return percent <= 100 ? percent : nil
+    }
+
     /// Payload after `CONFIG ` up to the trailing CR LF (observed: ten binary bytes, not decoded).
     static func configPayload(from response: Data) -> Data? {
         payload(of: response, prefix: "CONFIG ")

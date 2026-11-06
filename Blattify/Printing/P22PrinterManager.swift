@@ -35,12 +35,12 @@ final class P22PrinterManager: NSObject {
         case failed(message: String, mayBePartial: Bool)
     }
 
-    /// Raw status responses. Their meaning is not decoded yet (see `P22_PROTOCOL.md`).
+    /// Battery status from the `BATTERY?` query.
     struct Status: Equatable {
+        /// Raw payload after `BATTERY ` (shown if it cannot be decoded).
         var batteryPayload: Data?
-        var configPayload: Data?
+        var batteryPercent: Int?
         var batteryQueryFailed = false
-        var configQueryFailed = false
     }
 
     private(set) var phase: Phase = .starting
@@ -229,12 +229,12 @@ final class P22PrinterManager: NSObject {
     private func queryStatus(printerName: String) async {
         let battery = await request(P22Protocol.batteryQuery)
         status.batteryPayload = battery.flatMap(P22Protocol.batteryPayload(from:))
+        status.batteryPercent = status.batteryPayload.flatMap(P22Protocol.batteryPercent(fromPayload:))
         status.batteryQueryFailed = status.batteryPayload == nil
         guard isConnected else { return }
 
-        let config = await request(P22Protocol.configQuery)
-        status.configPayload = config.flatMap(P22Protocol.configPayload(from:))
-        status.configQueryFailed = status.configPayload == nil
+        // The answer is not used, but the original app always sent this query before printing.
+        _ = await request(P22Protocol.configQuery)
         guard isConnected else { return }
 
         phase = .ready(name: printerName)
