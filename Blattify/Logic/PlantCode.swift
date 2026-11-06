@@ -69,6 +69,32 @@ nonisolated struct PlantCode: Hashable, Sendable, CustomStringConvertible {
         return "\(compact.prefix(2))-\(compact.suffix(2))"
     }
 
+    /// Formats partial input while the user types: uppercases, drops characters outside the alphabet,
+    /// keeps at most 4 symbols and inserts the dash after the second one (`ab2` → `AB-2`).
+    /// A dash typed (or left after deleting) right after two symbols is kept (`ab-` → `AB-`),
+    /// so backspacing across the dash does not trigger a reformat.
+    /// `hadInvalidCharacters` reports whether anything other than dashes or spaces was dropped.
+    static func formatPartialInput(_ input: String) -> (text: String, hadInvalidCharacters: Bool) {
+        var hadInvalidCharacters = false
+        var symbols: [Character] = []
+        for character in input.uppercased() where character != "-" && !character.isWhitespace {
+            if allowedCharacters.contains(character) {
+                if symbols.count < 4 {
+                    symbols.append(character)
+                }
+            } else {
+                hadInvalidCharacters = true
+            }
+        }
+        var text = String(symbols.prefix(2))
+        if symbols.count > 2 {
+            text += "-" + String(symbols.dropFirst(2))
+        } else if symbols.count == 2, input.trimmingCharacters(in: .whitespaces).hasSuffix("-") {
+            text += "-"
+        }
+        return (text, hadInvalidCharacters)
+    }
+
     /// `true` only for strings already in canonical `XX-XX` form.
     static func isValid(_ string: String) -> Bool {
         normalize(string) == string

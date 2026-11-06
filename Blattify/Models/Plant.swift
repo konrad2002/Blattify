@@ -69,6 +69,18 @@ extension Plant {
 
     var isArchived: Bool { status.isArchived }
 
+    /// `true` if this plant is `other` or descends from it (walks up the parent chain).
+    /// Used to prevent cycles when choosing a parent plant.
+    func isSelfOrDescendant(of other: Plant) -> Bool {
+        var current: Plant? = self
+        var visited = Set<UUID>()
+        while let plant = current, visited.insert(plant.id).inserted {
+            if plant == other { return true }
+            current = plant.parent
+        }
+        return false
+    }
+
     /// The most recent event of the given kind.
     func latestEvent(of kind: EventKind) -> PlantEvent? {
         (events ?? [])

@@ -49,6 +49,7 @@
         "resources",
       ],
       "build-settings": {
+        "ASSETCATALOG_COMPILER_APPICON_NAME": "blattify-app-icon",
         "CODE_SIGN_ENTITLEMENTS": "Blattify/Blattify.entitlements",
         "CODE_SIGN_STYLE": "Automatic",
         "CURRENT_PROJECT_VERSION": "1",

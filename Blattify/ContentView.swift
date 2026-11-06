@@ -1,16 +1,21 @@
 import SwiftUI
 import SwiftData
 
-/// Temporary root view until the plant list is implemented (Phase 2).
+/// Root view: navigation stack with the home list.
 struct ContentView: View {
-    @Query private var plants: [Plant]
+    @State private var router = AppRouter()
 
     var body: some View {
-        ContentUnavailableView(
-            "Blattify",
-            systemImage: "leaf",
-            description: Text("^[\(plants.count) plant](inflect: true)")
-        )
+        NavigationStack(path: $router.path) {
+            PlantListView()
+                .navigationDestination(for: Route.self) { route in
+                    switch route {
+                    case .plant(let plant):
+                        PlantDetailView(plant: plant)
+                    }
+                }
+        }
+        .environment(router)
     }
 }
 

@@ -62,6 +62,24 @@ struct PlantCodeTests {
         #expect(PlantCode(input) == nil)
     }
 
+    @Test(arguments: [
+        ("", "", false),
+        ("a", "A", false),
+        ("ab", "AB", false),
+        ("ab-", "AB-", false),
+        ("a-", "A", false),
+        ("ab2", "AB-2", false),
+        ("ab23", "AB-23", false),
+        ("ab234", "AB-23", false),
+        ("a1b", "AB", true),
+        ("o", "", true),
+    ])
+    func formatPartialInput(input: String, expectedText: String, expectedInvalid: Bool) {
+        let result = PlantCode.formatPartialInput(input)
+        #expect(result.text == expectedText)
+        #expect(result.hadInvalidCharacters == expectedInvalid)
+    }
+
     @Test func isValidRequiresCanonicalForm() {
         #expect(PlantCode.isValid("AB-CD"))
         #expect(!PlantCode.isValid("ab-cd"))
