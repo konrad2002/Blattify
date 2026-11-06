@@ -43,6 +43,10 @@ final class AppRouter {
     var unknownCode: PlantCode?
     /// Error from an app-wide action (e.g. deleting a plant after leaving its screen).
     var errorMessage: String?
+    /// A backup file waiting for the user's confirmation to import.
+    var importCandidate: URL?
+    var isImporting = false
+    var importSummary: ImportSummary?
 
     /// Plant created in the form; its QR label opens once the form sheet is dismissed.
     private var createdPlant: Plant?
@@ -74,6 +78,35 @@ final class AppRouter {
             } catch {
                 errorMessage = error.localizedDescription
             }
+        }
+    }
+
+    /// Imports a backup: copies it out of the (possibly security-scoped) location, reads it in the
+    /// background and merges it on the main actor. Shows a summary or an error afterwards.
+    func importBackup(from url: URL, into modelContext: ModelContext) async {
+        isImporting = true
+        defer { isImporting = false }
+
+        let fileManager = FileManager.default
+        let copy = fileManager.temporaryDirectory.appending(path: "BlattifyImport-\(UUID().uuidString).blattify")
+        defer { try? fileManager.removeItem(at: copy) }
+
+        do {
+            let didAccess = url.startAccessingSecurityScopedResource()
+            defer {
+                if didAccess { url.stopAccessingSecurityScopedResource() }
+            }
+            try fileManager.copyItem(at: url, to: copy)
+        } catch {
+            errorMessage = error.localizedDescription
+            return
+        }
+
+        do {
+            let snapshot = try await BackupImporter.readArchive(at: copy)
+            importSummary = try BackupImporter.merge(snapshot, into: modelContext)
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 
@@ -132,6 +165,13 @@ final class AppRouter {
 
     /// Handles `blattify://plant/XX-XX` links (e.g. from the system Camera app).
     func handle(_ url: URL, in modelContext: ModelContext) {
+        // A .blattify file opened from Files, Mail or AirDrop.
+        if url.isFileURL {
+            if url.pathExtension.lowercased() == "blattify" {
+                importCandidate = url
+            }
+            return
+        }
         guard let code = PlantCode(url: url) else { return }
         // Close presentations so the plant becomes visible.
         isScanning = false

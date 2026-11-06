@@ -257,14 +257,18 @@ One `EventFormView` that adapts to the kind:
                       "fertilizerName": null, "fertilizerAmount": null,
                       "potDiameterCm": null, "substrate": null,
                       "resultingPlantID": null, "note": "",
-                      "photoFiles": ["images/UUID.jpg"] } ],
+                      "photos": [ { "id": "UUID", "file": "images/UUID.jpg", "createdAt": "…" } ] } ],
         "infestations": [ { "id": "…", "pestType": "thrips", "customPestName": null,
                             "startDate": "…", "resolvedDate": null, "notes": "",
-                            "photoFiles": [] } ]
+                            "photos": [] } ]
       }
-    ]
+    ],
+    "retiredCodes": ["ZZ-99"]
   }
   ```
+- `nil` values are omitted from the JSON. Dates are ISO 8601 in UTC with milliseconds.
+- `retiredCodes` keeps codes of permanently deleted plants blocked after a restore.
+- Only `data.json` and `images/<id>.jpg` entries are extracted and read on import (protection against manipulated archives).
 - Use separate `Codable` DTO structs (`BackupDTO`, `PlantDTO`, …), never encode the `@Model` classes directly.
 
 ### 6.2 Export

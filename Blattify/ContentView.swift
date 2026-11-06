@@ -57,6 +57,28 @@ struct ContentView: View {
         } message: {
             Text(router.errorMessage ?? "")
         }
+        .alert(
+            "Import backup?",
+            isPresented: Binding(get: { router.importCandidate != nil }, set: { if !$0 { router.importCandidate = nil } }),
+            presenting: router.importCandidate
+        ) { url in
+            Button("Import") {
+                Task { await router.importBackup(from: url, into: modelContext) }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { url in
+            Text("Plants, entries and photos from “\(url.lastPathComponent)” are added. Your existing data is kept.")
+        }
+        .sheet(item: $router.importSummary) { summary in
+            ImportSummaryView(summary: summary)
+        }
+        .overlay {
+            if router.isImporting {
+                ProgressView("Importing…")
+                    .padding(24)
+                    .glassEffect(in: .rect(cornerRadius: 20))
+            }
+        }
         .onOpenURL { url in
             router.handle(url, in: modelContext)
         }
