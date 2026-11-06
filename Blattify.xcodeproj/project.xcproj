@@ -92,6 +92,10 @@
       "id": "7180C1D1309D5BAB00D32554",
       "product": "Products/BlattifyTests.xctest",
       "product-type": "bundle.unit-test",
+      "test-host-target": "Blattify",
+      "dependencies": [
+        "Blattify",
+      ],
       "build-phases": [
         "compile-sources",
         "frameworks",
