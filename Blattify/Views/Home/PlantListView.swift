@@ -104,6 +104,9 @@ struct PlantListView: View {
                 Button("Archive", systemImage: "archivebox") {
                     router.path.append(.archive)
                 }
+                Button("Settings", systemImage: "gearshape") {
+                    router.path.append(.settings)
+                }
             } label: {
                 Label("View options", systemImage: "line.3.horizontal.decrease")
             }

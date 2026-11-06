@@ -4,6 +4,7 @@ import SwiftData
 /// Root view: navigation stack with the home list, app-wide sheets and deep-link handling.
 struct ContentView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(NotificationHandler.self) private var notificationHandler
     @State private var router = AppRouter()
 
     var body: some View {
@@ -17,6 +18,8 @@ struct ContentView: View {
                         PlantHistoryView(plant: plant)
                     case .archive:
                         ArchiveView()
+                    case .settings:
+                        SettingsView()
                     }
                 }
         }
@@ -57,10 +60,19 @@ struct ContentView: View {
         .onOpenURL { url in
             router.handle(url, in: modelContext)
         }
+        // `initial: true` also handles a tap that launched the app.
+        .onChange(of: notificationHandler.pendingPlantID, initial: true) { _, plantID in
+            guard let plantID else { return }
+            router.open(plantID: plantID, in: modelContext)
+            notificationHandler.pendingPlantID = nil
+        }
     }
 }
 
 #Preview {
+    let container = SampleData.makePreviewContainer()
     ContentView()
-        .modelContainer(SampleData.makePreviewContainer())
+        .modelContainer(container)
+        .environment(NotificationHandler())
+        .environment(ReminderCoordinator(container: container))
 }

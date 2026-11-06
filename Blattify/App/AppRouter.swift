@@ -6,12 +6,13 @@ enum Route: Hashable {
     case plant(Plant)
     case history(Plant)
     case archive
+    case settings
 
     /// The plant shown by this route, if any.
     var plant: Plant? {
         switch self {
         case .plant(let plant), .history(let plant): plant
-        case .archive: nil
+        case .archive, .settings: nil
         }
     }
 }
@@ -117,6 +118,16 @@ final class AppRouter {
         } else {
             unknownCode = code
         }
+    }
+
+    /// Opens the plant with `id` (e.g. from a tapped notification) and closes presentations.
+    func open(plantID id: UUID, in modelContext: ModelContext) {
+        let descriptor = FetchDescriptor<Plant>(predicate: #Predicate { $0.id == id })
+        guard let plant = try? modelContext.fetch(descriptor).first else { return }
+        isScanning = false
+        labelPlant = nil
+        newPlantRequest = nil
+        showPlant(plant)
     }
 
     /// Handles `blattify://plant/XX-XX` links (e.g. from the system Camera app).

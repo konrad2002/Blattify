@@ -31,7 +31,9 @@ struct PlantFormView: View {
     @State private var isTakingPhoto = false
     @State private var errorMessage: String?
     @State private var didLoad = false
+    @State private var notificationsDenied = false
     @FocusState private var isSpeciesFocused: Bool
+    @Environment(\.openURL) private var openURL
 
     private var isNew: Bool { plant == nil }
 
@@ -181,6 +183,29 @@ struct PlantFormView: View {
                     Text("Every ^[\(wateringIntervalDays) day](inflect: true)")
                 }
             }
+        } footer: {
+            if reminderEnabled && notificationsDenied {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Notifications are turned off for Blattify, so no reminder will be shown. The plant is still marked when it needs water.")
+                    Button("Open Settings") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) {
+                            openURL(url)
+                        }
+                    }
+                    .font(.footnote.weight(.semibold))
+                }
+            }
+        }
+        .onChange(of: reminderEnabled) { _, isEnabled in
+            // Ask for notification permission only when the user switches a reminder on.
+            guard isEnabled, didLoad else { return }
+            Task {
+                await ReminderScheduler.requestAuthorizationIfNeeded()
+                notificationsDenied = await ReminderScheduler.isDenied()
+            }
+        }
+        .task {
+            notificationsDenied = await ReminderScheduler.isDenied()
         }
     }
 
