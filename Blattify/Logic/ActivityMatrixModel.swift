@@ -109,8 +109,10 @@ nonisolated struct ActivityMatrixModel: Sendable {
         let date: Date
         let column: Int
         let row: Int
-        /// Visible categories in priority order, at most `maxSegments`.
+        /// Visible categories in priority order, at most `maxSegments` (what is drawn).
         let categories: [MatrixCategory]
+        /// All visible categories in priority order (for VoiceOver and day details).
+        let allCategories: [MatrixCategory]
         /// More categories than segments are shown.
         let hasMore: Bool
         let isFuture: Bool
@@ -207,6 +209,7 @@ nonisolated struct ActivityMatrixModel: Sendable {
                 column: column,
                 row: position % 7,
                 categories: Array(visible.prefix(Self.maxSegments)),
+                allCategories: visible,
                 hasMore: visible.count > Self.maxSegments,
                 isFuture: day > today,
                 isToday: day == today

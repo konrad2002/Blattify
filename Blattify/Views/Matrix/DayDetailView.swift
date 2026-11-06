@@ -9,6 +9,7 @@ struct DayDetailView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var formRequest: EventFormRequest?
+    @State private var infestationRequest: InfestationFormRequest?
 
     var body: some View {
         NavigationStack {
@@ -34,17 +35,12 @@ struct DayDetailView: View {
                 if !dayInfestations.isEmpty {
                     Section("Pests") {
                         ForEach(dayInfestations) { infestation in
-                            Label {
-                                VStack(alignment: .leading) {
-                                    Text(verbatim: infestation.displayName)
-                                    Text(infestation.isActive ? "Active" : "Resolved")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            } icon: {
-                                Image(systemName: "ladybug.fill")
-                                    .foregroundStyle(MatrixCategory.pest.color)
+                            Button {
+                                infestationRequest = InfestationFormRequest(infestation: infestation)
+                            } label: {
+                                InfestationRow(infestation: infestation)
                             }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
@@ -56,28 +52,41 @@ struct DayDetailView: View {
                     Button("Done") { dismiss() }
                 }
                 ToolbarItem(placement: .primaryAction) {
-                    Menu {
-                        ForEach(EventKind.allCases, id: \.self) { kind in
-                            Button {
-                                formRequest = EventFormRequest(kind: kind, date: presetDate)
-                            } label: {
-                                Label {
-                                    Text(kind.title)
-                                } icon: {
-                                    Image(systemName: kind.symbolName)
-                                }
-                            }
-                        }
-                    } label: {
-                        Label("Add event on this day", systemImage: "plus")
-                    }
+                    addMenu
                 }
             }
             .sheet(item: $formRequest) { request in
                 EventFormView(plant: plant, kind: request.kind, event: request.event, initialDate: request.date)
             }
+            .sheet(item: $infestationRequest) { request in
+                InfestationFormView(plant: plant, infestation: request.infestation,
+                                    initialStartDate: request.startDate)
+            }
         }
         .presentationDetents([.medium, .large])
+    }
+
+    private var addMenu: some View {
+        Menu {
+            ForEach(EventKind.allCases, id: \.self) { kind in
+                Button {
+                    formRequest = EventFormRequest(kind: kind, date: presetDate)
+                } label: {
+                    Label {
+                        Text(kind.title)
+                    } icon: {
+                        Image(systemName: kind.symbolName)
+                    }
+                }
+            }
+            Button {
+                infestationRequest = InfestationFormRequest(startDate: presetDate)
+            } label: {
+                Label("Pest infestation", systemImage: "ladybug")
+            }
+        } label: {
+            Label("Add event on this day", systemImage: "plus")
+        }
     }
 
     private var dayEvents: [PlantEvent] {

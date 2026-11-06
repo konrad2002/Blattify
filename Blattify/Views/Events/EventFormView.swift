@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import PhotosUI
 
 /// Request to show the event form for a new (`event == nil`) or existing event.
 struct EventFormRequest: Identifiable {
@@ -17,6 +16,8 @@ struct EventFormView: View {
     let kind: EventKind
     let event: PlantEvent?
     var initialDate: Date?
+    /// Called after saving a newly created event (used to offer creating a plant from a cutting).
+    var onCreate: (PlantEvent) -> Void = { _ in }
 
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -29,8 +30,6 @@ struct EventFormView: View {
     @State private var substrate = ""
     @State private var note = ""
     @State private var photos: [DraftPhoto] = []
-    @State private var pickerItems: [PhotosPickerItem] = []
-    @State private var isTakingPhoto = false
     @State private var isProcessingPhotos = false
     @State private var errorMessage: String?
     @State private var didLoad = false
@@ -44,11 +43,18 @@ struct EventFormView: View {
         case fertilizerName, fertilizerAmount, substrate
     }
 
-    init(plant: Plant, kind: EventKind, event: PlantEvent? = nil, initialDate: Date? = nil) {
+    init(
+        plant: Plant,
+        kind: EventKind,
+        event: PlantEvent? = nil,
+        initialDate: Date? = nil,
+        onCreate: @escaping (PlantEvent) -> Void = { _ in }
+    ) {
         self.plant = plant
         self.kind = kind
         self.event = event
         self.initialDate = initialDate
+        self.onCreate = onCreate
     }
 
     var body: some View {
@@ -62,7 +68,7 @@ struct EventFormView: View {
                     TextField("Note", text: $note, axis: .vertical)
                         .lineLimit(2...6)
                 }
-                photoSection
+                PhotoDraftSection(photos: $photos, isProcessing: $isProcessingPhotos, errorMessage: $errorMessage)
             }
             .navigationTitle(Text(kind.title))
             .navigationBarTitleDisplayMode(.inline)
@@ -76,16 +82,6 @@ struct EventFormView: View {
                 }
             }
             .onAppear(perform: loadIfNeeded)
-            .onChange(of: pickerItems) { _, items in
-                guard !items.isEmpty else { return }
-                Task { await addPhotos(from: items) }
-            }
-            .fullScreenCover(isPresented: $isTakingPhoto) {
-                CameraPicker { image in
-                    Task { await addPhoto(from: image) }
-                }
-                .ignoresSafeArea()
-            }
             .alert(
                 "Something went wrong",
                 isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
@@ -170,48 +166,6 @@ struct EventFormView: View {
         }
     }
 
-    private var photoSection: some View {
-        Section("Photos") {
-            if !photos.isEmpty {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(photos) { photo in
-                            PlantPhotoView(data: photo.data, pointSize: 80)
-                                .frame(width: 80, height: 80)
-                                .overlay(alignment: .topTrailing) {
-                                    Button {
-                                        photos.removeAll { $0.id == photo.id }
-                                    } label: {
-                                        Label("Remove photo", systemImage: "xmark.circle.fill")
-                                            .labelStyle(.iconOnly)
-                                            .font(.title3)
-                                            .symbolRenderingMode(.palette)
-                                            .foregroundStyle(.white, .black.opacity(0.6))
-                                    }
-                                    .buttonStyle(.plain)
-                                    .padding(4)
-                                }
-                        }
-                    }
-                    .padding(.vertical, 4)
-                }
-            }
-            PhotosPicker(selection: $pickerItems, maxSelectionCount: 10, matching: .images) {
-                Label("Add photos", systemImage: "photo.on.rectangle")
-            }
-            if CameraPicker.isAvailable {
-                Button {
-                    isTakingPhoto = true
-                } label: {
-                    Label("Take photo", systemImage: "camera")
-                }
-            }
-            if isProcessingPhotos {
-                ProgressView()
-            }
-        }
-    }
-
     // MARK: - Data
 
     private var parsedPotDiameter: Double? {
@@ -237,9 +191,7 @@ struct EventFormView: View {
             potDiameterText = event.potDiameterCm?.formatted(.number) ?? ""
             substrate = event.substrate ?? ""
             note = event.note
-            photos = (event.photos ?? [])
-                .sorted { $0.createdAt < $1.createdAt }
-                .map { DraftPhoto(id: $0.id, data: $0.imageData, existing: $0) }
+            photos = DraftPhoto.drafts(from: event.photos)
         } else {
             date = initialDate ?? .now
             if kind == .fertilizing, let last = plant.lastFertilizing {
@@ -265,32 +217,6 @@ struct EventFormView: View {
         }
     }
 
-    private func addPhotos(from items: [PhotosPickerItem]) async {
-        isProcessingPhotos = true
-        defer {
-            isProcessingPhotos = false
-            pickerItems = []
-        }
-        for item in items {
-            do {
-                if let data = try await item.loadTransferable(type: Data.self),
-                   let jpeg = await ImageProcessing.preparedJPEG(from: data) {
-                    photos.append(DraftPhoto(id: UUID(), data: jpeg, existing: nil))
-                }
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-        }
-    }
-
-    private func addPhoto(from image: UIImage) async {
-        isProcessingPhotos = true
-        defer { isProcessingPhotos = false }
-        if let jpeg = await ImageProcessing.preparedJPEG(from: image) {
-            photos.append(DraftPhoto(id: UUID(), data: jpeg, existing: nil))
-        }
-    }
-
     private func save() {
         let target: PlantEvent
         if let event {
@@ -309,31 +235,18 @@ struct EventFormView: View {
         target.potDiameterCm = kind == .repotting ? parsedPotDiameter : nil
         target.substrate = kind == .repotting ? substrate.nonEmptyTrimmed : nil
 
-        // Photos: delete removed ones, add new ones.
-        let keptIDs = Set(photos.compactMap { $0.existing?.id })
-        for photo in target.photos ?? [] where !keptIDs.contains(photo.id) {
-            modelContext.delete(photo)
-        }
-        for draft in photos where draft.existing == nil {
-            let photo = EventPhoto(imageData: draft.data)
-            modelContext.insert(photo)
-            photo.event = target
-        }
+        modelContext.apply(photos, replacing: target.photos) { $0.event = target }
 
         do {
             try modelContext.save()
+            if event == nil {
+                onCreate(target)
+            }
             dismiss()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
-}
-
-/// A photo in the form: either already stored or newly added.
-private struct DraftPhoto: Identifiable {
-    let id: UUID
-    let data: Data?
-    let existing: EventPhoto?
 }
 
 extension String {

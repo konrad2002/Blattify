@@ -7,6 +7,8 @@ struct PlantFormView: View {
     let plant: Plant?
     /// Code from a scanned label without a plant; used if it is still free.
     var presetCode: PlantCode? = nil
+    /// Prefills a new plant grown from a cutting (parent, species, name, date).
+    var cutting: CuttingSource? = nil
     /// Called after a new plant was inserted.
     var onCreate: (Plant) -> Void = { _ in }
 
@@ -222,6 +224,13 @@ struct PlantFormView: View {
             } catch {
                 errorMessage = String(localized: "No free plant code could be generated.")
             }
+            if let cutting {
+                parent = cutting.parent
+                species = cutting.parent.species
+                name = String(localized: "\(cutting.parent.name) (cutting)")
+                hasAcquiredDate = true
+                acquiredDate = min(cutting.event.date, .now)
+            }
         }
     }
 
@@ -264,6 +273,7 @@ struct PlantFormView: View {
 
         if isNew {
             modelContext.insert(target)
+            cutting?.event.resultingPlantID = target.id
         }
         do {
             try modelContext.save()

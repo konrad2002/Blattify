@@ -100,6 +100,10 @@ struct PlantListView: View {
                         Text(option.title).tag(option)
                     }
                 }
+                Divider()
+                Button("Archive", systemImage: "archivebox") {
+                    router.path.append(.archive)
+                }
             } label: {
                 Label("View options", systemImage: "line.3.horizontal.decrease")
             }

@@ -122,6 +122,7 @@ struct ActivityMatrixModelTests {
         let all = ActivityMatrixModel(year: 2026, events: events, pests: [pest], calendar: monday, now: now)
         #expect(cell(all, 4, 2)?.categories == [.wateringWet, .fertilizing, .pest, .repotting])
         #expect(cell(all, 4, 2)?.hasMore == true)
+        #expect(cell(all, 4, 2)?.allCategories == [.wateringWet, .fertilizing, .pest, .repotting, .cutting, .newLeaf])
 
         let filtered = ActivityMatrixModel(year: 2026, events: events, pests: [pest],
                                            visibleFilters: [.cutting, .newLeaf], calendar: monday, now: now)

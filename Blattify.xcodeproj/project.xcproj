@@ -53,7 +53,7 @@
         "ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME": "AccentColor",
         "CODE_SIGN_ENTITLEMENTS": "Blattify/Blattify.entitlements",
         "CODE_SIGN_STYLE": "Automatic",
-        "CURRENT_PROJECT_VERSION": "3",
+        "CURRENT_PROJECT_VERSION": "4",
         "DEVELOPMENT_TEAM": "LZS9NKKU7K",
         "ENABLE_APP_SANDBOX": "YES",
         "ENABLE_PREVIEWS": "YES",

@@ -1,15 +1,21 @@
 import SwiftUI
 import SwiftData
 
-/// Plant profile. Pests and family sections follow in Phase 6.
+/// Plant profile: header, quick actions, overview, activity, pests, family, history and notes.
 struct PlantDetailView: View {
     let plant: Plant
 
     @Environment(AppRouter.self) private var router
     @Environment(\.modelContext) private var modelContext
     @State private var isEditing = false
+    @State private var isArchiving = false
+    @State private var isConfirmingDelete = false
     @State private var eventFormRequest: EventFormRequest?
+    @State private var infestationFormRequest: InfestationFormRequest?
     @State private var quickLogged: QuickLoggedEvent?
+    /// A cutting event that was just created; offering to create a plant from it after the form closes.
+    @State private var newCuttingEvent: PlantEvent?
+    @State private var isOfferingCuttingPlant = false
     @State private var errorMessage: String?
 
     /// Number of entries shown in the profile before "Show all".
@@ -29,7 +35,8 @@ struct PlantDetailView: View {
                 QuickActionsView(
                     onWater: { logQuickly(.watering, wateringKind: $0) },
                     onNewLeaf: { logQuickly(.newLeaf) },
-                    onForm: { eventFormRequest = EventFormRequest(kind: $0) }
+                    onForm: { eventFormRequest = EventFormRequest(kind: $0) },
+                    onPest: { infestationFormRequest = InfestationFormRequest() }
                 )
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
@@ -40,6 +47,15 @@ struct PlantDetailView: View {
             Section("Activity") {
                 ActivityMatrixView(plant: plant)
             }
+
+            PestSection(
+                plant: plant,
+                onAdd: { infestationFormRequest = InfestationFormRequest() },
+                onEdit: { infestationFormRequest = InfestationFormRequest(infestation: $0) },
+                onResolve: resolve
+            )
+
+            FamilySection(plant: plant)
 
             recentHistorySection
 
@@ -68,8 +84,43 @@ struct PlantDetailView: View {
             }
         }
         .sensoryFeedback(.success, trigger: quickLogged?.id) { _, newValue in newValue != nil }
-        .sheet(item: $eventFormRequest) { request in
-            EventFormView(plant: plant, kind: request.kind, event: request.event, initialDate: request.date)
+        .sheet(item: $eventFormRequest, onDismiss: offerCuttingPlantIfNeeded) { request in
+            EventFormView(plant: plant, kind: request.kind, event: request.event, initialDate: request.date) { event in
+                if event.kind == .cutting {
+                    newCuttingEvent = event
+                }
+            }
+        }
+        .sheet(item: $infestationFormRequest) { request in
+            InfestationFormView(plant: plant, infestation: request.infestation, initialStartDate: request.startDate)
+        }
+        .sheet(isPresented: $isEditing) {
+            PlantFormView(plant: plant)
+        }
+        .sheet(isPresented: $isArchiving) {
+            ArchivePlantSheet(plant: plant)
+        }
+        .alert("Create a plant from this cutting?", isPresented: $isOfferingCuttingPlant, presenting: newCuttingEvent) { event in
+            Button("Create plant") {
+                router.createPlant(fromCutting: event, of: plant)
+                newCuttingEvent = nil
+            }
+            Button("Not now", role: .cancel) {
+                newCuttingEvent = nil
+            }
+        } message: { _ in
+            Text("The new plant gets its own code and \(plant.name) as its parent plant.")
+        }
+        .confirmationDialog(
+            Text("Delete \(plant.name)?"),
+            isPresented: $isConfirmingDelete,
+            titleVisibility: .visible
+        ) {
+            Button("Delete permanently", role: .destructive) {
+                router.deletePermanently(plant, in: modelContext)
+            }
+        } message: {
+            deleteMessage
         }
         .alert(
             "Something went wrong",
@@ -81,20 +132,33 @@ struct PlantDetailView: View {
         }
         .navigationTitle(plant.name)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    router.labelPlant = plant
-                } label: {
-                    Label("QR label", systemImage: "qrcode")
-                }
-            }
-            ToolbarItem(placement: .primaryAction) {
-                Button("Edit") { isEditing = true }
+        .toolbar { toolbarContent }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                router.labelPlant = plant
+            } label: {
+                Label("QR label", systemImage: "qrcode")
             }
         }
-        .sheet(isPresented: $isEditing) {
-            PlantFormView(plant: plant)
+        ToolbarItem(placement: .primaryAction) {
+            Menu {
+                Button("Edit", systemImage: "pencil") { isEditing = true }
+                if plant.isArchived {
+                    Button("Restore", systemImage: "arrow.uturn.backward") { restore() }
+                } else {
+                    Button("Archive…", systemImage: "archivebox") { isArchiving = true }
+                }
+                Divider()
+                Button("Delete plant", systemImage: "trash", role: .destructive) {
+                    isConfirmingDelete = true
+                }
+            } label: {
+                Label("More", systemImage: "ellipsis")
+            }
         }
     }
 
@@ -123,6 +187,12 @@ struct PlantDetailView: View {
         }
     }
 
+    private var deleteMessage: Text {
+        let entries = plant.events?.count ?? 0
+        let pests = plant.infestations?.count ?? 0
+        return Text("^[\(entries) entry](inflect: true) and ^[\(pests) pest record](inflect: true) will be deleted as well. Cuttings are kept. The code \(plant.code) will not be used again.")
+    }
+
     /// Logs an event with the current date right away; the undo toast allows taking it back.
     private func logQuickly(_ kind: EventKind, wateringKind: WateringKind? = nil) {
         let event = PlantEvent(kind: kind, wateringKind: wateringKind)
@@ -140,6 +210,27 @@ struct PlantDetailView: View {
     private func undo(_ logged: QuickLoggedEvent) {
         quickLogged = nil
         modelContext.delete(logged.event)
+        saveContext()
+    }
+
+    private func resolve(_ infestation: PestInfestation) {
+        infestation.resolvedDate = .now
+        saveContext()
+    }
+
+    private func restore() {
+        plant.restore()
+        saveContext()
+    }
+
+    /// Asks after the event form is gone; an alert presented while the sheet closes would be dropped.
+    private func offerCuttingPlantIfNeeded() {
+        if newCuttingEvent != nil {
+            isOfferingCuttingPlant = true
+        }
+    }
+
+    private func saveContext() {
         do {
             try modelContext.save()
         } catch {
@@ -168,241 +259,9 @@ private struct QuickLoggedEvent {
     }
 }
 
-/// Prominent buttons for the most common care actions.
-private struct QuickActionsView: View {
-    let onWater: (WateringKind) -> Void
-    let onNewLeaf: () -> Void
-    let onForm: (EventKind) -> Void
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Menu {
-                ForEach(WateringKind.allCases, id: \.self) { kind in
-                    Button {
-                        onWater(kind)
-                    } label: {
-                        Label {
-                            Text(kind.title)
-                        } icon: {
-                            Image(systemName: kind.symbolName)
-                        }
-                    }
-                }
-                Divider()
-                Button("With details…", systemImage: "square.and.pencil") { onForm(.watering) }
-            } label: {
-                QuickActionLabel(title: "Water", systemImage: "drop.fill", tint: EventKind.watering.tint)
-            }
-
-            Button {
-                onForm(.fertilizing)
-            } label: {
-                QuickActionLabel(title: "Fertilize", systemImage: EventKind.fertilizing.symbolName,
-                                 tint: EventKind.fertilizing.tint)
-            }
-
-            Button(action: onNewLeaf) {
-                QuickActionLabel(title: "New leaf", systemImage: EventKind.newLeaf.symbolName,
-                                 tint: EventKind.newLeaf.tint)
-            }
-
-            Menu {
-                Button {
-                    onForm(.repotting)
-                } label: {
-                    Label("Repotting", systemImage: EventKind.repotting.symbolName)
-                }
-                Button {
-                    onForm(.cutting)
-                } label: {
-                    Label("Cutting", systemImage: EventKind.cutting.symbolName)
-                }
-                Button {
-                    onForm(.newLeaf)
-                } label: {
-                    Label("New leaf with details…", systemImage: EventKind.newLeaf.symbolName)
-                }
-            } label: {
-                QuickActionLabel(title: "More", systemImage: "ellipsis", tint: .secondary)
-            }
-        }
-        .buttonStyle(.glass)
-        .menuStyle(.button)
-    }
-}
-
-private struct QuickActionLabel: View {
-    let title: LocalizedStringKey
-    let systemImage: String
-    let tint: Color
-
-    var body: some View {
-        VStack(spacing: 6) {
-            Image(systemName: systemImage)
-                .font(.title3)
-                .foregroundStyle(tint)
-                // Fixed height so short symbols (ellipsis) keep all buttons equally tall.
-                .frame(height: 28)
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 6)
-    }
-}
-
-/// Photo, name, species, code and state badges.
-private struct PlantHeader: View {
-    let plant: Plant
-    let showLabel: () -> Void
-
-    var body: some View {
-        VStack(spacing: 12) {
-            PlantPhotoView(data: plant.profilePhoto, pointSize: 220, cornerRadius: 24)
-                .frame(maxWidth: .infinity)
-                .frame(height: 220)
-
-            VStack(spacing: 4) {
-                Text(plant.name)
-                    .font(.title.bold())
-                    .multilineTextAlignment(.center)
-                if !plant.species.isEmpty {
-                    Text(plant.species)
-                        .font(.title3)
-                        .foregroundStyle(.secondary)
-                        .multilineTextAlignment(.center)
-                }
-            }
-
-            HStack(spacing: 8) {
-                Button(action: showLabel) {
-                    CodeChip(code: plant.code, font: .subheadline)
-                }
-                .buttonStyle(.plain)
-                .accessibilityHint(Text("Shows the QR label"))
-                if plant.isArchived {
-                    StatusBadge(status: plant.status)
-                }
-                if plant.hasActiveInfestation {
-                    Label("Pests", systemImage: "ladybug.fill")
-                        .font(.caption.weight(.semibold))
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 3)
-                        .background(.red.opacity(0.15), in: .capsule)
-                        .foregroundStyle(.red)
-                }
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
-    }
-}
-
-/// Last care dates and general information.
-private struct KeyFactsSection: View {
-    let plant: Plant
-
-    var body: some View {
-        Section("Overview") {
-            LabeledContent {
-                if let watering = plant.lastWatering {
-                    VStack(alignment: .trailing) {
-                        Text(RelativeDay.text(for: watering.date))
-                        if let kind = watering.wateringKind {
-                            Text(kind.title)
-                                .font(.caption)
-                        }
-                    }
-                } else {
-                    Text("Never")
-                }
-            } label: {
-                Label("Last watered", systemImage: "drop.fill")
-            }
-
-            if let next = plant.nextWateringDate() {
-                LabeledContent {
-                    Text(RelativeDay.dueText(for: next))
-                        .foregroundStyle(plant.isWateringDue() ? .red : .secondary)
-                        .fontWeight(plant.isWateringDue() ? .semibold : .regular)
-                } label: {
-                    Label("Next watering", systemImage: "bell")
-                }
-            }
-
-            LabeledContent {
-                if let fertilizing = plant.lastFertilizing {
-                    VStack(alignment: .trailing) {
-                        Text(RelativeDay.text(for: fertilizing.date))
-                        if let name = fertilizing.fertilizerName, !name.isEmpty {
-                            Text(name)
-                                .font(.caption)
-                        }
-                    }
-                } else {
-                    Text("Never")
-                }
-            } label: {
-                Label("Last fertilized", systemImage: EventKind.fertilizing.symbolName)
-            }
-
-            LabeledContent {
-                if let repotting = plant.lastRepotting {
-                    VStack(alignment: .trailing) {
-                        Text(RelativeDay.text(for: repotting.date))
-                        if let diameter = repotting.potDiameterCm {
-                            Text(verbatim: PlantEvent.formattedPotDiameter(diameter))
-                                .font(.caption)
-                        }
-                    }
-                } else {
-                    Text("Never")
-                }
-            } label: {
-                Label("Last repotted", systemImage: EventKind.repotting.symbolName)
-            }
-
-            LabeledContent {
-                if let leaf = plant.lastNewLeaf {
-                    Text(RelativeDay.text(for: leaf.date))
-                } else {
-                    Text("Never")
-                }
-            } label: {
-                Label("Latest new leaf", systemImage: EventKind.newLeaf.symbolName)
-            }
-
-            if let acquired = plant.acquiredDate {
-                LabeledContent {
-                    Text(acquired, format: .dateTime.day().month().year())
-                } label: {
-                    Label("Bought on", systemImage: "cart")
-                }
-            }
-
-            LabeledContent {
-                Text(ageText)
-            } label: {
-                Label("With you for", systemImage: "calendar")
-            }
-        }
-    }
-
-    /// Time since purchase (or creation if the purchase date is unknown).
-    private var ageText: String {
-        let now = Date.now
-        let start = min(plant.acquiredDate ?? plant.createdAt, now)
-        let days = RelativeDay.days(from: start, to: now)
-        let fields: Set<Date.ComponentsFormatStyle.Field> = days < 31 ? [.day] : [.year, .month]
-        return (start..<now).formatted(.components(style: .wide, fields: fields))
-    }
-}
-
 #Preview {
     let container = SampleData.makePreviewContainer()
-    let descriptor = FetchDescriptor<Plant>(predicate: #Predicate { $0.code == "CA-9X" })
+    let descriptor = FetchDescriptor<Plant>(predicate: #Predicate { $0.code == "MN-24" })
     let plant = (try? container.mainContext.fetch(descriptor).first) ?? Plant(code: "AB-23", name: "Preview")
     NavigationStack {
         PlantDetailView(plant: plant)

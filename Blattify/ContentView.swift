@@ -15,12 +15,14 @@ struct ContentView: View {
                         PlantDetailView(plant: plant)
                     case .history(let plant):
                         PlantHistoryView(plant: plant)
+                    case .archive:
+                        ArchiveView()
                     }
                 }
         }
         .environment(router)
         .sheet(item: $router.newPlantRequest, onDismiss: router.newPlantSheetDismissed) { request in
-            PlantFormView(plant: nil, presetCode: request.presetCode) { plant in
+            PlantFormView(plant: nil, presetCode: request.presetCode, cutting: request.cutting) { plant in
                 router.didCreate(plant)
             }
         }
@@ -43,6 +45,14 @@ struct ContentView: View {
             Button("Cancel", role: .cancel) {}
         } message: { code in
             Text("No plant with code \(code.rawValue)")
+        }
+        .alert(
+            "Something went wrong",
+            isPresented: Binding(get: { router.errorMessage != nil }, set: { if !$0 { router.errorMessage = nil } })
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(router.errorMessage ?? "")
         }
         .onOpenURL { url in
             router.handle(url, in: modelContext)

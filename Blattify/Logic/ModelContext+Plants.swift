@@ -35,6 +35,19 @@ extension ModelContext {
         return result
     }
 
+    /// Deletes a plant with its events, infestations and photos. Its code is retired so it is never
+    /// handed out again; cuttings keep existing without a parent.
+    func deletePermanently(_ plant: Plant) throws {
+        if !plant.code.isEmpty {
+            insert(RetiredPlantCode(code: plant.code))
+        }
+        for child in plant.children ?? [] {
+            child.parent = nil
+        }
+        delete(plant)
+        try save()
+    }
+
     /// A new code that is not used by any plant and was never retired.
     func makeUniquePlantCode() throws -> PlantCode {
         try PlantCode.generate(excluding: usedPlantCodes())

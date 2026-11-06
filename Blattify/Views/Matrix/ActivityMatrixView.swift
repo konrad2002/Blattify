@@ -254,7 +254,7 @@ struct ActivityMatrixView: View {
     /// e.g. "3 March: Soaked, Fertilizing"
     private func accessibilityText(for cell: ActivityMatrixModel.Cell) -> String {
         let day = cell.date.formatted(.dateTime.day().month(.wide))
-        let categories = cell.categories.map { String(localized: $0.title) }.formatted(.list(type: .and))
+        let categories = cell.allCategories.map { String(localized: $0.title) }.formatted(.list(type: .and))
         return "\(day): \(categories)"
     }
 

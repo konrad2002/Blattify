@@ -69,6 +69,24 @@ extension Plant {
 
     var isArchived: Bool { status.isArchived }
 
+    /// Marks the plant as given away or died on `date`.
+    func archive(as status: PlantStatus, on date: Date) {
+        guard status.isArchived else { return }
+        self.status = status
+        statusDate = date
+    }
+
+    /// Makes an archived plant active again.
+    func restore() {
+        status = .active
+        statusDate = nil
+    }
+
+    /// Cuttings sorted by name.
+    var sortedChildren: [Plant] {
+        (children ?? []).sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+    }
+
     /// `true` if this plant is `other` or descends from it (walks up the parent chain).
     /// Used to prevent cycles when choosing a parent plant.
     func isSelfOrDescendant(of other: Plant) -> Bool {
