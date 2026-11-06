@@ -1,17 +1,20 @@
 import SwiftUI
-import Playgrounds
+import SwiftData
 
+/// Temporary root view until the plant list is implemented (Phase 2).
 struct ContentView: View {
+    @Query private var plants: [Plant]
+
     var body: some View {
-        Text("Hello, world!")
-            .padding()
+        ContentUnavailableView(
+            "Blattify",
+            systemImage: "leaf",
+            description: Text("^[\(plants.count) plant](inflect: true)")
+        )
     }
 }
 
 #Preview {
     ContentView()
-}
-
-#Playground {
-    _ = 1 + 2
+        .modelContainer(SampleData.makePreviewContainer())
 }
