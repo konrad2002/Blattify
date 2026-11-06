@@ -32,7 +32,7 @@ struct ArchivePlantSheet: View {
                     Button("Cancel", role: .cancel) { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Archive", action: save)
+                    Button("Save", action: save)
                 }
             }
             .alert(
@@ -41,7 +41,7 @@ struct ArchivePlantSheet: View {
             ) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text(errorMessage ?? "")
+                Text(verbatim: errorMessage ?? "")
             }
         }
         .presentationDetents([.medium])

@@ -48,7 +48,7 @@ struct BlattifyApp: App {
                 ContentUnavailableView(
                     "Data could not be loaded",
                     systemImage: "exclamationmark.triangle",
-                    description: Text(storeError?.localizedDescription ?? "")
+                    description: Text(verbatim: storeError?.localizedDescription ?? "")
                 )
             }
         }

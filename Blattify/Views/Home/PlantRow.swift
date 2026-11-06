@@ -5,6 +5,15 @@ import SwiftData
 struct PlantRow: View {
     let plant: Plant
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// Code and last watering side by side; stacked at accessibility text sizes.
+    private var detailLayout: AnyLayout {
+        dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+            : AnyLayout(HStackLayout(spacing: 8))
+    }
+
     var body: some View {
         HStack(spacing: 12) {
             PlantPhotoView(data: plant.profilePhoto, pointSize: 56)
@@ -18,7 +27,7 @@ struct PlantRow: View {
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
-                HStack(spacing: 8) {
+                detailLayout {
                     CodeChip(code: plant.code)
                     LastWateredLabel(plant: plant)
                 }

@@ -42,8 +42,8 @@ struct PlantHeader: View {
                 }
             }
 
-            if plant.isArchived, let date = plant.statusDate {
-                Text(statusLine(for: plant.status, date: date))
+            if let date = plant.statusDate, let line = statusLine(for: plant.status, date: date) {
+                Text(line)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -52,12 +52,13 @@ struct PlantHeader: View {
         .padding(.vertical, 8)
     }
 
-    private func statusLine(for status: PlantStatus, date: Date) -> LocalizedStringKey {
+    /// `nil` for active plants.
+    private func statusLine(for status: PlantStatus, date: Date) -> LocalizedStringKey? {
         let formatted = date.formatted(date: .long, time: .omitted)
         switch status {
         case .givenAway: return "Given away on \(formatted)"
         case .died: return "Died on \(formatted)"
-        case .active: return ""
+        case .active: return nil
         }
     }
 }

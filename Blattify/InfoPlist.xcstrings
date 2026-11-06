@@ -2,12 +2,25 @@
   "sourceLanguage" : "en",
   "strings" : {
     "Blattify Backup" : {
-
+      "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Blattify-Backup"
+          }
+        }
+      }
     },
     "CFBundleName" : {
       "comment" : "Bundle name",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Blattify"
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "new",
@@ -20,6 +33,12 @@
       "comment" : "Privacy - Camera Usage Description",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Blattify verwendet die Kamera, um QR-Codes deiner Pflanzen zu scannen und Pflanzenfotos aufzunehmen."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "new",
@@ -32,6 +51,12 @@
       "comment" : "Privacy - Photo Library Additions Usage Description",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "de" : {
+          "stringUnit" : {
+            "state" : "machine_translated",
+            "value" : "Blattify speichert QR-Code-Etiketten für deine Pflanzen in deiner Fotomediathek."
+          }
+        },
         "en" : {
           "stringUnit" : {
             "state" : "new",

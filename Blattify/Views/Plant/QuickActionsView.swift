@@ -7,8 +7,15 @@ struct QuickActionsView: View {
     let onForm: (EventKind) -> Void
     let onPest: () -> Void
 
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    /// Four buttons in a row; two rows of two at accessibility text sizes.
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: 10), count: dynamicTypeSize.isAccessibilitySize ? 2 : 4)
+    }
+
     var body: some View {
-        HStack(spacing: 10) {
+        LazyVGrid(columns: columns, spacing: 10) {
             Menu {
                 ForEach(WateringKind.allCases, id: \.self) { kind in
                     Button {
@@ -81,7 +88,8 @@ private struct QuickActionLabel: View {
                 .frame(height: 28)
             Text(title)
                 .font(.caption.weight(.semibold))
-                .lineLimit(1)
+                .lineLimit(2)
+                .multilineTextAlignment(.center)
                 .minimumScaleFactor(0.8)
         }
         .frame(maxWidth: .infinity)

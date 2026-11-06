@@ -128,7 +128,7 @@ struct PlantDetailView: View {
         ) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text(errorMessage ?? "")
+            Text(verbatim: errorMessage ?? "")
         }
         .navigationTitle(plant.name)
         .navigationBarTitleDisplayMode(.inline)

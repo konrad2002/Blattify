@@ -85,7 +85,7 @@ struct PlantFormView: View {
             ) {
                 Button("OK", role: .cancel) {}
             } message: {
-                Text(errorMessage ?? "")
+                Text(verbatim: errorMessage ?? "")
             }
         }
     }

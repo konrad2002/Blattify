@@ -51,7 +51,7 @@ struct ArchiveView: View {
         ) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text(errorMessage ?? "")
+            Text(verbatim: errorMessage ?? "")
         }
     }
 

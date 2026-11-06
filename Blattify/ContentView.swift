@@ -55,7 +55,7 @@ struct ContentView: View {
         ) {
             Button("OK", role: .cancel) {}
         } message: {
-            Text(router.errorMessage ?? "")
+            Text(verbatim: router.errorMessage ?? "")
         }
         .alert(
             "Import backup?",

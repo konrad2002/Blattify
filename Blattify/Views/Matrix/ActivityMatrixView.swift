@@ -86,9 +86,9 @@ struct ActivityMatrixView: View {
         )
     }
 
+    /// Wraps onto several lines so every chip stays visible (also at large text sizes).
     private var filterChips: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
+        FlowLayout(spacing: 8) {
                 ForEach(MatrixFilter.allCases, id: \.self) { filter in
                     let isOn = visibleFilters.contains(filter)
                     Button {
@@ -114,12 +114,11 @@ struct ActivityMatrixView: View {
                     .buttonStyle(.plain)
                     .accessibilityAddTraits(isOn ? .isSelected : [])
                 }
-            }
         }
     }
 
     private var legend: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), alignment: .leading)], alignment: .leading, spacing: 6) {
+        FlowLayout(spacing: 12) {
             ForEach(MatrixCategory.allCases, id: \.self) { category in
                 HStack(spacing: 6) {
                     RoundedRectangle(cornerRadius: 3)
@@ -128,6 +127,7 @@ struct ActivityMatrixView: View {
                     Text(category.title)
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                        .fixedSize()
                 }
             }
         }
@@ -186,11 +186,17 @@ struct ActivityMatrixView: View {
         .accessibilityElement(children: .contain)
         .accessibilityLabel(Text("Activity in \(String(model.year))"))
         .accessibilityChildren {
-            ForEach(model.cells.filter { !$0.categories.isEmpty }) { cell in
+            // Per month: a summary heading, then one element per day with entries.
+            ForEach(activeMonths(in: model), id: \.month) { group in
                 Color.clear
-                    .accessibilityLabel(Text(accessibilityText(for: cell)))
-                    .accessibilityAddTraits(.isButton)
-                    .accessibilityAction { selectedCell = cell }
+                    .accessibilityLabel(Text(monthSummary(month: group.month, activeDays: group.cells.count)))
+                    .accessibilityAddTraits(.isHeader)
+                ForEach(group.cells) { cell in
+                    Color.clear
+                        .accessibilityLabel(Text(accessibilityText(for: cell)))
+                        .accessibilityAddTraits(.isButton)
+                        .accessibilityAction { selectedCell = cell }
+                }
             }
         }
     }
@@ -249,6 +255,21 @@ struct ActivityMatrixView: View {
 
     private func gridWidth(_ model: ActivityMatrixModel) -> CGFloat {
         max(0, CGFloat(model.columnCount) * Self.step - Self.spacing)
+    }
+
+    /// Months that have at least one day with entries, with those days.
+    private func activeMonths(in model: ActivityMatrixModel) -> [(month: Int, cells: [ActivityMatrixModel.Cell])] {
+        let active = model.cells.filter { !$0.allCategories.isEmpty }
+        return Dictionary(grouping: active, by: \.id.month)
+            .map { (month: $0.key, cells: $0.value) }
+            .sorted { $0.month < $1.month }
+    }
+
+    /// e.g. "March: 12 days with entries"
+    private func monthSummary(month: Int, activeDays: Int) -> LocalizedStringKey {
+        let symbols = Calendar.current.standaloneMonthSymbols
+        let name = symbols.indices.contains(month - 1) ? symbols[month - 1] : String(month)
+        return "\(name): ^[\(activeDays) day](inflect: true) with entries"
     }
 
     /// e.g. "3 March: Soaked, Fertilizing"
