@@ -6,14 +6,12 @@ import Foundation
 /// when it closes. All delegate callbacks arrive on the main queue.
 @Observable
 final class P22PrinterManager: NSObject {
-    /// One physical printer. The printer advertises from changing addresses, which iOS reports as
-    /// new peripherals, so entries are grouped by a stable key (manufacturer data, else name) and
-    /// always keep the most recently seen peripheral for connecting.
+    /// One printer, identified by a key from its advertisement (manufacturer data, else name).
     struct DiscoveredPrinter: Identifiable {
         let id: String
         let name: String
         var rssi: Int
-        var peripheral: CBPeripheral
+        let peripheral: CBPeripheral
     }
 
     enum Phase: Equatable {
@@ -62,6 +60,8 @@ final class P22PrinterManager: NSObject {
     @ObservationIgnored private var pendingResponse: (id: UUID, continuation: CheckedContinuation<Data?, Never>)?
     @ObservationIgnored private var readyToWrite: CheckedContinuation<Void, Never>?
     @ObservationIgnored private var connectTimeout: Task<Void, Never>?
+    /// iOS identifiers seen per printer key during the current search.
+    @ObservationIgnored private var identitiesByKey: [String: Set<UUID>] = [:]
 
     private static let responseTimeout: Duration = .seconds(3)
     private static let connectionTimeout: Duration = .seconds(15)
@@ -84,6 +84,7 @@ final class P22PrinterManager: NSObject {
     func startScanning() {
         guard let central, central.state == .poweredOn else { return }
         printers = []
+        identitiesByKey = [:]
         phase = .scanning
         // No service filter: the name "P22" and the advertised service AF30 are both only candidate hints.
         central.scanForPeripherals(withServices: nil, options: [CBCentralManagerScanOptionAllowDuplicatesKey: false])
@@ -275,11 +276,18 @@ extension P22PrinterManager: CBCentralManagerDelegate {
         // Advertisements that cannot be connected to are useless for printing.
         if let connectable = advertisementData[CBAdvertisementDataIsConnectable] as? Bool, !connectable { return }
 
-        let rssi = RSSI.intValue
+        // The P22 also sends a second advertising stream (without its manufacturer data) from
+        // constantly changing addresses; connecting through it fails. The printable advertisement
+        // keeps one stable identity, so any group seen with several identities is hidden.
         let key = Self.printerKey(name: name, advertisement: advertisementData)
+        identitiesByKey[key, default: []].insert(peripheral.identifier)
+        guard identitiesByKey[key]?.count == 1 else {
+            printers.removeAll { $0.id == key }
+            return
+        }
+
+        let rssi = RSSI.intValue
         if let index = printers.firstIndex(where: { $0.id == key }) {
-            // Same printer from a new address: keep the newest peripheral for connecting.
-            printers[index].peripheral = peripheral
             if rssi != 127 { printers[index].rssi = rssi }
         } else {
             printers.append(DiscoveredPrinter(id: key, name: name, rssi: rssi, peripheral: peripheral))
