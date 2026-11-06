@@ -45,10 +45,18 @@ struct PrintLabelSheet: View {
                 case .ready(let name):
                     statusSection(name: name)
                     printSection
-                case .failed(let message):
+                case .failed(let message, let details):
                     Section {
-                        Label(message, systemImage: "exclamationmark.triangle")
-                            .foregroundStyle(.orange)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label(message, systemImage: "exclamationmark.triangle")
+                                .foregroundStyle(.orange)
+                            if let details {
+                                Text(verbatim: details)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                                    .textSelection(.enabled)
+                            }
+                        }
                         Button("Search again", systemImage: "arrow.clockwise") {
                             printer.chooseAnotherPrinter()
                         }

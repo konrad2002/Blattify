@@ -6,11 +6,14 @@ import Foundation
 /// when it closes. All delegate callbacks arrive on the main queue.
 @Observable
 final class P22PrinterManager: NSObject {
+    /// One physical printer. The printer advertises from changing addresses, which iOS reports as
+    /// new peripherals, so entries are grouped by a stable key (manufacturer data, else name) and
+    /// always keep the most recently seen peripheral for connecting.
     struct DiscoveredPrinter: Identifiable {
-        let id: UUID
+        let id: String
         let name: String
         var rssi: Int
-        let peripheral: CBPeripheral
+        var peripheral: CBPeripheral
     }
 
     enum Phase: Equatable {
@@ -21,7 +24,8 @@ final class P22PrinterManager: NSObject {
         case scanning
         case connecting(name: String)
         case ready(name: String)
-        case failed(message: String)
+        /// `details`: technical information for diagnosing connection problems (e.g. found services).
+        case failed(message: String, details: String?)
     }
 
     enum PrintState: Equatable {
@@ -168,12 +172,28 @@ final class P22PrinterManager: NSObject {
         responseCharacteristic = nil
     }
 
-    private func fail(_ message: String) {
+    private func fail(_ message: String, details: String? = nil) {
         if let peripheral {
             central?.cancelPeripheralConnection(peripheral)
         }
         resetConnection()
-        phase = .failed(message: message)
+        phase = .failed(message: message, details: details)
+    }
+
+    /// Stable key for one physical printer: its manufacturer data (observed to match the printer's
+    /// fixed address) or, if missing, its name.
+    private static func printerKey(name: String, advertisement: [String: Any]) -> String {
+        if let manufacturerData = advertisement[CBAdvertisementDataManufacturerDataKey] as? Data, !manufacturerData.isEmpty {
+            return "mfr:" + manufacturerData.hexString
+        }
+        return "name:" + name
+    }
+
+    private static func serviceList(_ services: [CBService]) -> String {
+        let uuids = services.map(\.uuid.uuidString)
+        return uuids.isEmpty
+            ? String(localized: "Services found: none")
+            : String(localized: "Services found: \(uuids.joined(separator: ", "))")
     }
 
     /// Writes one query and waits for the next `FF01` notification (responses are untagged, so only
@@ -252,23 +272,30 @@ extension P22PrinterManager: CBCentralManagerDelegate {
         let name = printerName(for: peripheral, advertisement: advertisementData)
         // Candidates: advertises AF30 or is called P22 (neither is a proven unique identifier).
         guard services.contains(P22GATT.advertisedService) || name.hasPrefix(P22GATT.advertisedName) else { return }
+        // Advertisements that cannot be connected to are useless for printing.
+        if let connectable = advertisementData[CBAdvertisementDataIsConnectable] as? Bool, !connectable { return }
+
         let rssi = RSSI.intValue
-        if let index = printers.firstIndex(where: { $0.id == peripheral.identifier }) {
+        let key = Self.printerKey(name: name, advertisement: advertisementData)
+        if let index = printers.firstIndex(where: { $0.id == key }) {
+            // Same printer from a new address: keep the newest peripheral for connecting.
+            printers[index].peripheral = peripheral
             if rssi != 127 { printers[index].rssi = rssi }
         } else {
-            printers.append(DiscoveredPrinter(id: peripheral.identifier, name: name, rssi: rssi, peripheral: peripheral))
+            printers.append(DiscoveredPrinter(id: key, name: name, rssi: rssi, peripheral: peripheral))
         }
     }
 
     func centralManager(_ central: CBCentralManager, didConnect peripheral: CBPeripheral) {
         guard peripheral == self.peripheral else { return }
-        peripheral.discoverServices([P22GATT.printService, P22GATT.auxiliaryService])
+        // Discover everything: filtering by UUID is more fragile, and the found list helps diagnose problems.
+        peripheral.discoverServices(nil)
     }
 
     func centralManager(_ central: CBCentralManager, didFailToConnect peripheral: CBPeripheral, error: Error?) {
         guard peripheral == self.peripheral else { return }
         connectTimeout?.cancel()
-        fail(error?.localizedDescription ?? String(localized: "Could not connect to the printer."))
+        fail(String(localized: "Could not connect to the printer."), details: error?.localizedDescription)
     }
 
     func centralManager(_ central: CBCentralManager, didDisconnectPeripheral peripheral: CBPeripheral,
@@ -281,7 +308,7 @@ extension P22PrinterManager: CBCentralManagerDelegate {
             printState = .failed(message: String(localized: "The connection to the printer was lost. The label may be incomplete."),
                                  mayBePartial: true)
         }
-        phase = .failed(message: String(localized: "The printer was disconnected."))
+        phase = .failed(message: String(localized: "The printer was disconnected."), details: error?.localizedDescription)
     }
 }
 
@@ -291,8 +318,13 @@ extension P22PrinterManager: CBPeripheralDelegate {
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         guard peripheral == self.peripheral else { return }
         let services = peripheral.services ?? []
-        guard error == nil, let printService = services.first(where: { $0.uuid == P22GATT.printService }) else {
-            fail(String(localized: "This device does not offer the expected printer service."))
+        if let error {
+            fail(String(localized: "The printer's services could not be read."), details: error.localizedDescription)
+            return
+        }
+        guard let printService = services.first(where: { $0.uuid == P22GATT.printService }) else {
+            fail(String(localized: "This device does not offer the expected printer service."),
+                 details: Self.serviceList(services))
             return
         }
         peripheral.discoverCharacteristics(nil, for: printService)
@@ -314,10 +346,15 @@ extension P22PrinterManager: CBPeripheralDelegate {
         guard service.uuid == P22GATT.printService else { return }
         let write = characteristics.first { $0.uuid == P22GATT.writeCharacteristic }
         let response = characteristics.first { $0.uuid == P22GATT.responseCharacteristic }
-        guard error == nil,
-              let write, write.properties.contains(.writeWithoutResponse),
+        if let error {
+            fail(String(localized: "The printer's services could not be read."), details: error.localizedDescription)
+            return
+        }
+        guard let write, write.properties.contains(.writeWithoutResponse),
               let response, response.properties.contains(.notify) else {
-            fail(String(localized: "This device does not offer the expected printer service."))
+            let found = characteristics.map(\.uuid.uuidString).joined(separator: ", ")
+            fail(String(localized: "This device does not offer the expected printer service."),
+                 details: String(localized: "Characteristics of FF00: \(found)"))
             return
         }
         writeCharacteristic = write
@@ -329,7 +366,7 @@ extension P22PrinterManager: CBPeripheralDelegate {
         // Status queries start only after FF01 notifications are confirmed.
         guard peripheral == self.peripheral, characteristic.uuid == P22GATT.responseCharacteristic else { return }
         guard error == nil, characteristic.isNotifying else {
-            fail(String(localized: "The printer could not be prepared for printing."))
+            fail(String(localized: "The printer could not be prepared for printing."), details: error?.localizedDescription)
             return
         }
         connectTimeout?.cancel()
