@@ -5,6 +5,8 @@ import PhotosUI
 /// Create (`plant == nil`) or edit a plant.
 struct PlantFormView: View {
     let plant: Plant?
+    /// Code from a scanned label without a plant; used if it is still free.
+    var presetCode: PlantCode? = nil
     /// Called after a new plant was inserted.
     var onCreate: (Plant) -> Void = { _ in }
 
@@ -214,7 +216,12 @@ struct PlantFormView: View {
             photoData = plant.profilePhoto
         } else {
             do {
-                code = try modelContext.makeUniquePlantCode().rawValue
+                let usedCodes = try modelContext.usedPlantCodes()
+                if let presetCode, !usedCodes.contains(presetCode.rawValue) {
+                    code = presetCode.rawValue
+                } else {
+                    code = try PlantCode.generate(excluding: usedCodes).rawValue
+                }
             } catch {
                 errorMessage = String(localized: "No free plant code could be generated.")
             }

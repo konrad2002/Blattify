@@ -5,12 +5,15 @@ import SwiftData
 struct PlantDetailView: View {
     let plant: Plant
 
+    @Environment(AppRouter.self) private var router
     @State private var isEditing = false
 
     var body: some View {
         List {
             Section {
-                PlantHeader(plant: plant)
+                PlantHeader(plant: plant) {
+                    router.labelPlant = plant
+                }
                     .listRowInsets(EdgeInsets())
                     .listRowBackground(Color.clear)
             }
@@ -27,6 +30,13 @@ struct PlantDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
+                Button {
+                    router.labelPlant = plant
+                } label: {
+                    Label("QR label", systemImage: "qrcode")
+                }
+            }
+            ToolbarItem(placement: .primaryAction) {
                 Button("Edit") { isEditing = true }
             }
         }
@@ -39,6 +49,7 @@ struct PlantDetailView: View {
 /// Photo, name, species, code and state badges.
 private struct PlantHeader: View {
     let plant: Plant
+    let showLabel: () -> Void
 
     var body: some View {
         VStack(spacing: 12) {
@@ -59,7 +70,11 @@ private struct PlantHeader: View {
             }
 
             HStack(spacing: 8) {
-                CodeChip(code: plant.code, font: .subheadline)
+                Button(action: showLabel) {
+                    CodeChip(code: plant.code, font: .subheadline)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint(Text("Shows the QR label"))
                 if plant.isArchived {
                     StatusBadge(status: plant.status)
                 }
@@ -186,5 +201,6 @@ private struct KeyFactsSection: View {
     NavigationStack {
         PlantDetailView(plant: plant)
     }
+    .environment(AppRouter())
     .modelContainer(container)
 }

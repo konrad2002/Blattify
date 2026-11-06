@@ -30,7 +30,6 @@ struct PlantListView: View {
     @AppStorage("homeLayout") private var layout: HomeLayout = .list
     @AppStorage("homeSort") private var sort: PlantSort = .name
     @State private var searchText = ""
-    @State private var isCreatingPlant = false
     @State private var isEnteringCode = false
 
     init() {
@@ -43,11 +42,6 @@ struct PlantListView: View {
             .navigationTitle("Plants")
             .searchable(text: $searchText, prompt: Text("Name, species or code"))
             .toolbar { toolbarContent }
-            .sheet(isPresented: $isCreatingPlant) {
-                PlantFormView(plant: nil) { newPlant in
-                    router.showPlant(newPlant)
-                }
-            }
             .sheet(isPresented: $isEnteringCode) {
                 CodeEntrySheet { plant in
                     router.showPlant(plant)
@@ -64,7 +58,7 @@ struct PlantListView: View {
             } description: {
                 Text("Add your first plant to start tracking its care.")
             } actions: {
-                Button("Create first plant") { isCreatingPlant = true }
+                Button("Create first plant") { router.createPlant() }
                     .buttonStyle(.glassProminent)
             }
         } else if visiblePlants.isEmpty {
@@ -112,12 +106,20 @@ struct PlantListView: View {
         }
         ToolbarItemGroup(placement: .topBarTrailing) {
             Button {
+                router.isScanning = true
+            } label: {
+                Label("Scan QR code", systemImage: "qrcode.viewfinder")
+            }
+            Button {
                 isEnteringCode = true
             } label: {
                 Label("Enter code", systemImage: "number")
             }
+        }
+        ToolbarSpacer(.fixed, placement: .topBarTrailing)
+        ToolbarItem(placement: .topBarTrailing) {
             Button {
-                isCreatingPlant = true
+                router.createPlant()
             } label: {
                 Label("New plant", systemImage: "plus")
             }
