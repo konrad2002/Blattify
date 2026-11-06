@@ -4,6 +4,7 @@ import SwiftData
 /// Destinations in the main navigation stack.
 enum Route: Hashable {
     case plant(Plant)
+    case history(Plant)
 }
 
 /// Request to show the new-plant form, optionally with a code from a scanned label.

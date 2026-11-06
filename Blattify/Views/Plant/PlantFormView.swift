@@ -26,6 +26,7 @@ struct PlantFormView: View {
     @State private var photoData: Data?
     @State private var photoItem: PhotosPickerItem?
     @State private var isProcessingPhoto = false
+    @State private var isTakingPhoto = false
     @State private var errorMessage: String?
     @State private var didLoad = false
     @FocusState private var isSpeciesFocused: Bool
@@ -68,6 +69,12 @@ struct PlantFormView: View {
             .onChange(of: photoItem) { _, item in
                 Task { await loadPhoto(from: item) }
             }
+            .fullScreenCover(isPresented: $isTakingPhoto) {
+                CameraPicker { image in
+                    Task { await loadPhoto(from: image) }
+                }
+                .ignoresSafeArea()
+            }
             .alert(
                 "Something went wrong",
                 isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
@@ -96,6 +103,13 @@ struct PlantFormView: View {
                     PhotosPicker(selection: $photoItem, matching: .images) {
                         Label(hasPhoto ? "Change photo" : "Choose photo", systemImage: "photo")
                     }
+                    if CameraPicker.isAvailable {
+                        Button {
+                            isTakingPhoto = true
+                        } label: {
+                            Label("Take photo", systemImage: "camera")
+                        }
+                    }
                     if photoData != nil {
                         Button("Remove photo", role: .destructive) {
                             photoData = nil
@@ -123,31 +137,16 @@ struct PlantFormView: View {
                 .autocorrectionDisabled()
                 .focused($isSpeciesFocused)
             if isSpeciesFocused && !speciesSuggestions.isEmpty {
-                speciesSuggestionRow
+                SuggestionChips(suggestions: speciesSuggestions) { suggestion in
+                    species = suggestion
+                    isSpeciesFocused = false
+                }
             }
         } footer: {
             if isNew {
                 Text("The code is generated automatically and printed on the plant's QR label.")
             }
         }
-    }
-
-    /// Tappable chips with species already used for other plants.
-    private var speciesSuggestionRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach(speciesSuggestions.prefix(10), id: \.self) { suggestion in
-                    Button(suggestion) {
-                        species = suggestion
-                        isSpeciesFocused = false
-                    }
-                    .buttonStyle(.bordered)
-                    .buttonBorderShape(.capsule)
-                    .font(.subheadline)
-                }
-            }
-        }
-        .accessibilityLabel(Text("Species suggestions"))
     }
 
     private var acquiredSection: some View {
@@ -187,11 +186,9 @@ struct PlantFormView: View {
 
     /// Distinct species of other plants matching the current input.
     private var speciesSuggestions: [String] {
-        let input = species.trimmingCharacters(in: .whitespaces)
         let known = Set(allPlants.map(\.species).filter { !$0.isEmpty })
-        return known
-            .filter { input.isEmpty || ($0.localizedStandardContains(input) && $0 != input) }
             .sorted { $0.localizedStandardCompare($1) == .orderedAscending }
+        return SuggestionChips.matches(for: species, in: known)
     }
 
     /// All plants except this one and its descendants (prevents cycles).
@@ -242,6 +239,17 @@ struct PlantFormView: View {
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func loadPhoto(from image: UIImage) async {
+        isProcessingPhoto = true
+        defer { isProcessingPhoto = false }
+        guard let jpeg = await ImageProcessing.preparedJPEG(from: image) else {
+            errorMessage = String(localized: "The photo could not be loaded.")
+            return
+        }
+        photoData = jpeg
+        photoItem = nil
     }
 
     private func save() {

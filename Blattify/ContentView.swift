@@ -13,6 +13,8 @@ struct ContentView: View {
                     switch route {
                     case .plant(let plant):
                         PlantDetailView(plant: plant)
+                    case .history(let plant):
+                        PlantHistoryView(plant: plant)
                     }
                 }
         }

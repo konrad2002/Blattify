@@ -16,6 +16,25 @@ extension ModelContext {
         return Set(plantCodes + retiredCodes)
     }
 
+    /// Distinct, non-empty values of a text field across all events of `kind`, most recently used first.
+    /// Used for suggestions such as fertilizer names or substrates.
+    func recentEventValues(of kind: EventKind, _ value: (PlantEvent) -> String?) throws -> [String] {
+        let rawKind = kind.rawValue
+        let descriptor = FetchDescriptor<PlantEvent>(
+            predicate: #Predicate { $0.kindRaw == rawKind },
+            sortBy: [SortDescriptor(\.date, order: .reverse)]
+        )
+        var seen = Set<String>()
+        var result: [String] = []
+        for event in try fetch(descriptor) {
+            guard let text = value(event)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !text.isEmpty,
+                  seen.insert(text).inserted else { continue }
+            result.append(text)
+        }
+        return result
+    }
+
     /// A new code that is not used by any plant and was never retired.
     func makeUniquePlantCode() throws -> PlantCode {
         try PlantCode.generate(excluding: usedPlantCodes())

@@ -15,6 +15,13 @@ nonisolated enum ImageProcessing {
         return UIImage(cgImage: image).jpegData(compressionQuality: jpegQuality)
     }
 
+    /// Same as `preparedJPEG(from:)` for camera images; encoding happens off the main actor too.
+    @concurrent
+    static func preparedJPEG(from image: UIImage) async -> Data? {
+        guard let data = image.jpegData(compressionQuality: 1) else { return nil }
+        return await preparedJPEG(from: data)
+    }
+
     /// A small image for lists and headers. `maxPixelSize` is in pixels, not points.
     @concurrent
     static func thumbnail(from data: Data, maxPixelSize: CGFloat) async -> UIImage? {
