@@ -1,0 +1,159 @@
+{
+  "timestamp": "2026-11-06T11:14:59.119015+00:00",
+  "device": {
+    "name": "P22",
+    "address": "1E899276-711C-77AD-48F5-8EDC878BECB5",
+    "rssi": -69,
+    "local_name": "P22",
+    "tx_power": null,
+    "service_uuids": [
+      "0000af30-0000-1000-8000-00805f9b34fb"
+    ],
+    "manufacturer_data": {
+      "62250": "ae 5a 48 33"
+    },
+    "service_data": {}
+  },
+  "services": [
+    {
+      "uuid": "0000ff00-0000-1000-8000-00805f9b34fb",
+      "handle": 4,
+      "characteristics": [
+        {
+          "uuid": "0000ff02-0000-1000-8000-00805f9b34fb",
+          "handle": 5,
+          "properties": [
+            "write-without-response"
+          ],
+          "descriptors": [],
+          "value": null
+        },
+        {
+          "uuid": "0000ff01-0000-1000-8000-00805f9b34fb",
+          "handle": 7,
+          "properties": [
+            "notify"
+          ],
+          "descriptors": [
+            {
+              "uuid": "00002902-0000-1000-8000-00805f9b34fb",
+              "handle": 9,
+              "value": "bytearray(b'\\x00\\x00')"
+            }
+          ],
+          "value": null
+        },
+        {
+          "uuid": "0000ff04-0000-1000-8000-00805f9b34fb",
+          "handle": 10,
+          "properties": [
+            "write-without-response"
+          ],
+          "descriptors": [],
+          "value": null
+        },
+        {
+          "uuid": "0000ff03-0000-1000-8000-00805f9b34fb",
+          "handle": 12,
+          "properties": [
+            "notify"
+          ],
+          "descriptors": [
+            {
+              "uuid": "00002902-0000-1000-8000-00805f9b34fb",
+              "handle": 14,
+              "value": "bytearray(b'\\x00\\x00')"
+            }
+          ],
+          "value": null
+        },
+        {
+          "uuid": "0000ff05-0000-1000-8000-00805f9b34fb",
+          "handle": 15,
+          "properties": [
+            "indicate"
+          ],
+          "descriptors": [
+            {
+              "uuid": "00002902-0000-1000-8000-00805f9b34fb",
+              "handle": 17,
+              "value": "bytearray(b'\\x00\\x00')"
+            }
+          ],
+          "value": null
+        },
+        {
+          "uuid": "0000ff10-0000-1000-8000-00805f9b34fb",
+          "handle": 18,
+          "properties": [
+            "read",
+            "write"
+          ],
+          "descriptors": [],
+          "value": "bytearray(b'\\x00\\x00\\x00\\x00')"
+        }
+      ]
+    },
+    {
+      "uuid": "0000ae3a-0000-1000-8000-00805f9b34fb",
+      "handle": 64,
+      "characteristics": [
+        {
+          "uuid": "0000ae3b-0000-1000-8000-00805f9b34fb",
+          "handle": 65,
+          "properties": [
+            "write-without-response"
+          ],
+          "descriptors": [],
+          "value": null
+        },
+        {
+          "uuid": "0000ae3c-0000-1000-8000-00805f9b34fb",
+          "handle": 67,
+          "properties": [
+            "notify"
+          ],
+          "descriptors": [
+            {
+              "uuid": "00002902-0000-1000-8000-00805f9b34fb",
+              "handle": 69,
+              "value": "bytearray(b'\\x00\\x00')"
+            }
+          ],
+          "value": null
+        }
+      ]
+    },
+    {
+      "uuid": "0000ae00-0000-1000-8000-00805f9b34fb",
+      "handle": 128,
+      "characteristics": [
+        {
+          "uuid": "0000ae01-0000-1000-8000-00805f9b34fb",
+          "handle": 129,
+          "properties": [
+            "write-without-response"
+          ],
+          "descriptors": [],
+          "value": null
+        },
+        {
+          "uuid": "0000ae02-0000-1000-8000-00805f9b34fb",
+          "handle": 131,
+          "properties": [
+            "notify"
+          ],
+          "descriptors": [
+            {
+              "uuid": "00002902-0000-1000-8000-00805f9b34fb",
+              "handle": 133,
+              "value": "bytearray(b'\\x00\\x00')"
+            }
+          ],
+          "value": null
+        }
+      ]
+    }
+  ],
+  "notifications": []
+}
