@@ -11,14 +11,14 @@ extension PlantEvent {
 }
 
 extension EventKind {
-    /// Icon tint used in history and quick actions.
+    /// Icon tint used in history and quick actions; matches the activity matrix colors.
     var tint: Color {
         switch self {
-        case .watering: .blue
-        case .fertilizing: .brown
-        case .repotting: .orange
-        case .cutting: .purple
-        case .newLeaf: .green
+        case .watering: .matrixSoaked
+        case .fertilizing: .matrixFertilizing
+        case .repotting: .matrixRepotting
+        case .cutting: .matrixCutting
+        case .newLeaf: .matrixNewLeaf
         }
     }
 }

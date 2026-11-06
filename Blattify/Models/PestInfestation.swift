@@ -43,4 +43,13 @@ extension PestInfestation {
     }
 
     var isActive: Bool { resolvedDate == nil }
+
+    /// Custom name for `other` (if given), otherwise the localized pest type.
+    var displayName: String {
+        if pestType == .other, let custom = customPestName?.trimmingCharacters(in: .whitespacesAndNewlines),
+           !custom.isEmpty {
+            return custom
+        }
+        return String(localized: pestType.title)
+    }
 }

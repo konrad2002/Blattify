@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// Plant profile. Matrix, pests and family sections follow in later phases.
+/// Plant profile. Pests and family sections follow in Phase 6.
 struct PlantDetailView: View {
     let plant: Plant
 
@@ -36,6 +36,10 @@ struct PlantDetailView: View {
             }
 
             KeyFactsSection(plant: plant)
+
+            Section("Activity") {
+                ActivityMatrixView(plant: plant)
+            }
 
             recentHistorySection
 
