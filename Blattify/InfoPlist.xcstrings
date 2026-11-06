@@ -29,6 +29,24 @@
         }
       }
     },
+    "NSBluetoothAlwaysUsageDescription" : {
+      "comment" : "Privacy - Bluetooth Always Usage Description",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Blattify uses Bluetooth to find and connect to your label printer and print plant labels."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Blattify verwendet Bluetooth, um deinen Etikettendrucker zu finden, sich mit ihm zu verbinden und Pflanzenetiketten zu drucken."
+          }
+        }
+      }
+    },
     "NSCameraUsageDescription" : {
       "comment" : "Privacy - Camera Usage Description",
       "extractionState" : "extracted_with_value",

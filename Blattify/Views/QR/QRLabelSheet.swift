@@ -9,6 +9,7 @@ struct QRLabelSheet: View {
     @State private var isSaving = false
     @State private var didSave = false
     @State private var errorMessage: String?
+    @State private var isPrinting = false
 
     private var code: PlantCode? { PlantCode(plant.code) }
 
@@ -43,6 +44,9 @@ struct QRLabelSheet: View {
                 pngData = QRLabelView.renderPNG(code: code, name: plant.name)
             }
             .sensoryFeedback(.success, trigger: didSave)
+            .sheet(isPresented: $isPrinting) {
+                PrintLabelSheet(plant: plant)
+            }
             .alert(
                 "Could not save label",
                 isPresented: Binding(get: { errorMessage != nil }, set: { if !$0 { errorMessage = nil } })
@@ -56,6 +60,16 @@ struct QRLabelSheet: View {
 
     @ViewBuilder
     private var actions: some View {
+        Button {
+            isPrinting = true
+        } label: {
+            Label("Print label", systemImage: "printer")
+                .frame(maxWidth: .infinity)
+        }
+        .buttonStyle(.glassProminent)
+        .controlSize(.large)
+        .disabled(code == nil)
+
         if let pngData {
             HStack(spacing: 12) {
                 ShareLink(
@@ -65,7 +79,7 @@ struct QRLabelSheet: View {
                     Label("Share", systemImage: "square.and.arrow.up")
                         .frame(maxWidth: .infinity)
                 }
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.glass)
 
                 Button {
                     Task { await save(pngData) }
